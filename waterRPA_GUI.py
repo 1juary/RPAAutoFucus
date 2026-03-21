@@ -468,6 +468,7 @@ class RPAWindow(QMainWindow):
 
     def add_row(self, data=None):
         # 移除底部的弹簧
+        self.task_layout.takeAt(self.task_layout.count() - 1) # 这行代码的作用是从 task_layout 中移除最后一个组件，这个组件是之前添加的弹簧（stretch）。因为我们要在这个位置添加新的 TaskRow，所以需要先移除弹簧，等添加完 TaskRow 后再加回弹簧。这样可以确保新的 TaskRow 被添加到布局的正确位置，而不会被弹簧推到其他地方。
         row = TaskRow(self.task_layout, self.delete_row)
         if data:
             row.set_data(data)
