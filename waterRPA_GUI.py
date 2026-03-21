@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import sys
 import os
 import time
@@ -5,10 +6,219 @@ import json
 import pyautogui
 import pyperclip
 import traceback
+from PIL import Image as PILImage
+from io import BytesIO
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                                QPushButton, QLabel, QComboBox, QLineEdit, QScrollArea, 
-                               QFileDialog, QTextEdit, QMessageBox, QFrame, QCheckBox)
-from PySide6.QtCore import Qt, QThread, Signal
+                               QFileDialog, QTextEdit, QMessageBox, QFrame, QCheckBox, QDialog, QListWidget, QListWidgetItem)
+from PySide6.QtCore import Qt, QThread, Signal, QSize, QMimeData
+from PySide6.QtGui import QPixmap, QColor, QIcon, QClipboard
+
+# --------------------------
+# 自定义输入框和对话框 (版本B - 增强版)
+# --------------------------
+
+class ImageLineEdit(QLineEdit):
+    """支持粘贴/拖拽图片的智能输入框"""
+    
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAcceptDrops(True)
+        self.image_history = []  # 本行的图片历史
+        self.setPlaceholderText("粘贴截图或拖拽图片")
+    
+    def dragEnterEvent(self, event):
+        if event.mimeData().hasUrls() or event.mimeData().hasImage():
+            event.acceptProposedAction()
+    
+    def dropEvent(self, event):
+        mime_data = event.mimeData()
+        if mime_data.hasUrls():
+            urls = mime_data.urls()
+            if urls:
+                file_path = urls[0].toLocalFile()
+                if self._is_image_file(file_path):
+                    self.setText(file_path)
+                    event.acceptProposedAction()
+        elif mime_data.hasImage():
+            pixmap = mime_data.imageData()
+            self._process_pasted_image(pixmap)
+            event.acceptProposedAction()
+    
+    def keyPressEvent(self, event):
+        """监听快捷键，Ctrl+V时从剪贴板获取图片"""
+        # 检测 Ctrl+V (粘贴快捷键)
+        if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
+            print("\n" + "="*60)
+            print("🔍【Ctrl+V 粘贴检测】")
+            print("="*60)
+            
+            # 直接从QApplication的剪贴板获取图片
+            clipboard = QApplication.clipboard()
+            pixmap = clipboard.pixmap()
+            
+            print(f"✓ 剪贴板图片: {pixmap.width()}×{pixmap.height()}")
+            
+            if not pixmap.isNull():
+                print("✓ 找到有效的图片数据，处理中...")
+                self._process_pasted_image(pixmap)
+                print("✓ 粘贴处理完成")
+                print("="*60)
+                return  # 阻止默认行为
+            else:
+                print("⚠️  剪贴板中没有图片")
+                print("="*60)
+        
+        # 其他按键的默认处理
+        super().keyPressEvent(event)
+    
+    def insertFromMimeData(self, source):
+        """拦截粘贴事件 - 支持多种剪贴板格式"""
+        # 尝试从source直接获取图片（用于dropEvent等场景）
+        if source.hasImage():
+            pixmap = source.imageData()
+            if isinstance(pixmap, QPixmap) and not pixmap.isNull():
+                print("✓ insertFromMimeData - 识别图片数据")
+                self._process_pasted_image(pixmap)
+                return
+        
+        # 尝试文件URL（拖拽文件）
+        if source.hasUrls():
+            urls = source.urls()
+            if urls:
+                file_path = urls[0].toLocalFile()
+                if self._is_image_file(file_path) and os.path.exists(file_path):
+                    print(f"✓ insertFromMimeData - 识别文件: {file_path}")
+                    self.setText(file_path)
+                    self._show_preview(file_path)
+                    return
+        
+        # 默认行为（保留文本粘贴能力）
+        super().insertFromMimeData(source)
+    
+    def _process_pasted_image(self, pixmap):
+        """处理粘贴的图片（显示确认对话框）"""
+        if not isinstance(pixmap, QPixmap):
+            return
+        
+        # 显示确认对话框
+        dialog = PasteConfirmDialog(pixmap, self)
+        if dialog.exec() == QDialog.Accepted:
+            saved_path = dialog.get_saved_path()
+            if saved_path:
+                self.setText(saved_path)
+                self.image_history.append(saved_path)
+                self._show_preview(saved_path)
+    
+    def _show_preview(self, file_path):
+        """显示图片预览提示（文件名+大小）"""
+        if os.path.exists(file_path):
+            file_size_kb = os.path.getsize(file_path) / 1024
+            self.setPlaceholderText(f"📷 {os.path.basename(file_path)} ({file_size_kb:.0f}KB)")
+    
+    def _is_image_file(self, file_path):
+        """检查是否为图片文件"""
+        valid_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.gif')
+        return file_path.lower().endswith(valid_extensions)
+    
+    def get_image_history(self):
+        """获取图片历史列表"""
+        return self.image_history
+    
+    def clear_history(self):
+        """清空历史记录"""
+        self.image_history.clear()
+
+
+class PasteConfirmDialog(QDialog):
+    """粘贴确认对话框 - 显示缩略图、大小、压缩选项"""
+    
+    def __init__(self, pixmap, parent=None):
+        super().__init__(parent)
+        self.pixmap = pixmap
+        self.saved_path = None
+        self.compress = False
+        self.setWindowTitle("确认粘贴的图片")
+        self.setFixedWidth(400)
+        self.init_ui()
+    
+    def init_ui(self):
+        layout = QVBoxLayout(self)
+        
+        # 标题（成功提示）
+        title = QLabel("✓ 截图已复制到剪贴板")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; color: #4CAF50;")
+        layout.addWidget(title)
+        
+        # 缩略图预览
+        preview_label = QLabel()
+        scaled = self.pixmap.scaledToHeight(150, Qt.SmoothTransformation)
+        preview_label.setPixmap(scaled)
+        preview_label.setAlignment(Qt.AlignCenter)
+        preview_label.setStyleSheet("border: 2px solid #ddd; padding: 10px; margin: 10px 0;")
+        layout.addWidget(preview_label)
+        
+        # 图片信息（分辨率）
+        info_text = f"分辨率: {self.pixmap.width()}×{self.pixmap.height()} px"
+        info_label = QLabel(info_text)
+        info_label.setStyleSheet("color: #666; font-size: 12px;")
+        layout.addWidget(info_label)
+        
+        # 压缩选项
+        self.compress_check = QCheckBox("自动压缩大于1MB的图片")
+        self.compress_check.setChecked(True)
+        layout.addWidget(self.compress_check)
+        
+        # 操作按钮
+        btn_layout = QHBoxLayout()
+        
+        save_btn = QPushButton("💾 保存")
+        save_btn.setStyleSheet("background-color: #4CAF50; color: white; padding: 8px; border-radius: 4px;")
+        save_btn.clicked.connect(self.save_image)
+        
+        cancel_btn = QPushButton("✕ 取消")
+        cancel_btn.clicked.connect(self.reject)
+        
+        btn_layout.addWidget(save_btn)
+        btn_layout.addWidget(cancel_btn)
+        layout.addLayout(btn_layout)
+    
+    def save_image(self):
+        """保存图片到template目录"""
+        template_dir = "template"
+        if not os.path.exists(template_dir):
+            os.makedirs(template_dir)
+        
+        # 生成唯一文件名
+        timestamp = time.strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(template_dir, f"screenshot_{timestamp}.png")
+        
+        # 避免文件名重复
+        counter = 1
+        base_filename = filename[:-4]
+        while os.path.exists(filename):
+            filename = f"{base_filename}_{counter}.png"
+            counter += 1
+        
+        # 检查是否需要压缩
+        pixmap = self.pixmap
+        if self.compress_check.isChecked():
+            file_size_mb = self.pixmap.width() * self.pixmap.height() * 4 / (1024*1024)
+            if file_size_mb > 1:
+                # 压缩到1920宽度
+                pixmap = self.pixmap.scaledToWidth(1920, Qt.SmoothTransformation)
+        
+        # 保存图片
+        if pixmap.save(filename):
+            self.saved_path = filename
+            # QMessageBox.information(self, "✓ 成功", f"图片已保存：\n{filename}")
+            self.accept()
+        else:
+            QMessageBox.warning(self, "✕ 错误", f"无法保存图片到 {filename}")
+    
+    def get_saved_path(self):
+        """获取保存的文件路径"""
+        return self.saved_path
 
 # --------------------------
 # 核心逻辑 (原 waterRPA.py)
@@ -264,9 +474,9 @@ class TaskRow(QFrame): # 每一行任务的 UI 组件，包含操作类型选择
         self.type_combo.currentTextChanged.connect(self.on_type_changed)
         self.layout.addWidget(self.type_combo)
         
-        # 参数输入区域
-        self.value_input = QLineEdit()
-        self.value_input.setPlaceholderText("参数值 (如图片路径、文本、时间)")
+        # 参数输入区域（支持粘贴/拖拽图片）
+        self.value_input = ImageLineEdit()
+        self.value_input.setPlaceholderText("参数值 (粘贴截图或拖拽图片)")
         self.layout.addWidget(self.value_input)
         
         # 文件选择按钮 (默认隐藏)
@@ -282,6 +492,14 @@ class TaskRow(QFrame): # 每一行任务的 UI 组件，包含操作类型选择
         self.retry_input.setFixedWidth(100)
         self.retry_input.setVisible(True)
         self.layout.addWidget(self.retry_input)
+        
+        # 历史记录按钮
+        self.history_btn = QPushButton("📋")
+        self.history_btn.setFixedWidth(30)
+        self.history_btn.setToolTip("查看本行的图片历史")
+        self.history_btn.clicked.connect(self.show_image_history)
+        self.history_btn.setVisible(False)  # 图片操作时显示
+        self.layout.addWidget(self.history_btn)
         
         # 删除按钮
         self.del_btn = QPushButton("X")
@@ -300,33 +518,55 @@ class TaskRow(QFrame): # 每一行任务的 UI 组件，包含操作类型选择
             self.file_btn.setVisible(True)
             self.file_btn.setText("选择图片")
             self.retry_input.setVisible(True)
-            self.value_input.setPlaceholderText("图片路径")
+            self.history_btn.setVisible(True)
+            self.value_input.setPlaceholderText("📷 粘贴截图或拖拽 / 选择图片按钮")
         # 输入 (4)
         elif cmd_type == 4.0:
             self.file_btn.setVisible(False)
+            self.history_btn.setVisible(False)
             self.retry_input.setVisible(False)
             self.value_input.setPlaceholderText("请输入要发送的文本")
         # 等待 (5)
         elif cmd_type == 5.0:
             self.file_btn.setVisible(False)
+            self.history_btn.setVisible(False)
             self.retry_input.setVisible(False)
             self.value_input.setPlaceholderText("等待秒数 (如 1.5)")
         # 滚轮 (6)
         elif cmd_type == 6.0:
             self.file_btn.setVisible(False)
+            self.history_btn.setVisible(False)
             self.retry_input.setVisible(False)
             self.value_input.setPlaceholderText("滚动距离 (正数向上，负数向下)")
         # 系统按键 (7)
         elif cmd_type == 7.0:
             self.file_btn.setVisible(False)
+            self.history_btn.setVisible(False)
             self.retry_input.setVisible(False)
             self.value_input.setPlaceholderText("组合键 (如 ctrl+s, alt+tab)")
         # 截图保存 (9)
         elif cmd_type == 9.0:
             self.file_btn.setVisible(True)
+            self.history_btn.setVisible(False)
             self.file_btn.setText("选择保存文件夹")
             self.retry_input.setVisible(False)
             self.value_input.setPlaceholderText("保存目录 (如 D:\\Screenshots)")
+
+    def show_image_history(self):
+        """显示本行的图片历史"""
+        history = self.value_input.get_image_history()
+        if not history:
+            QMessageBox.information(self, "提示", "当前没有图片历史")
+            return
+        
+        msg = "📋 本行的图片历史：\n\n"
+        for i, path in enumerate(history, 1):
+            file_size = os.path.getsize(path) / 1024 if os.path.exists(path) else 0
+            msg += f"{i}. {os.path.basename(path)} ({file_size:.0f}KB)\n"
+        
+        reply = QMessageBox.question(self, "图片历史", msg + "\n点击【是】快速重新使用最后一个图片？")
+        if reply == QMessageBox.Yes and history:
+            self.value_input.setText(history[-1])
 
     def set_data(self, data):
         """用于回填数据"""
