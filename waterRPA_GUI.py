@@ -27,7 +27,7 @@ class ImageLineEdit(QLineEdit):
         self.image_history = []  # 本行的图片历史
         self.setPlaceholderText("粘贴截图或拖拽图片")
     
-    def dragEnterEvent(self, event):
+    def dragEnterEvent(self, event): # 当拖拽进入输入框时触发，检查是否包含文件URL或图片数据，如果是则接受拖拽事件
         if event.mimeData().hasUrls() or event.mimeData().hasImage():
             event.acceptProposedAction()
     
@@ -49,19 +49,19 @@ class ImageLineEdit(QLineEdit):
         """监听快捷键，Ctrl+V时从剪贴板获取图片"""
         # 检测 Ctrl+V (粘贴快捷键)
         if event.key() == Qt.Key_V and event.modifiers() == Qt.ControlModifier:
-            print("\n" + "="*60)
+            print("\n" + "="*60) # 视觉分隔线，突出显示粘贴事件
             print("🔍【Ctrl+V 粘贴检测】")
             print("="*60)
             
             # 直接从QApplication的剪贴板获取图片
-            clipboard = QApplication.clipboard()
-            pixmap = clipboard.pixmap()
+            clipboard = QApplication.clipboard() #QApplication.clipboard() 是 PyQt/PySide 中获取系统剪贴板的方式。通过这个方法，我们可以访问剪贴板中的内容，无论是文本、图片还是其他数据类型。在这里，我们使用 clipboard.pixmap() 来尝试获取剪贴板中的图片数据，如果存在有效的图片，就会返回一个 QPixmap 对象；如果剪贴板中没有图片，则返回一个空的 QPixmap。
+            pixmap = clipboard.pixmap() #pixmap() 方法会尝试从剪贴板中获取图片数据，并返回一个 QPixmap 对象。如果剪贴板中确实包含图片数据，那么这个 QPixmap 对象将包含该图片；如果剪贴板中没有图片数据，则返回一个空的 QPixmap 对象。通过检查 pixmap.isNull() 可以判断是否成功获取到图片数据。
             
             print(f"✓ 剪贴板图片: {pixmap.width()}×{pixmap.height()}")
             
             if not pixmap.isNull():
                 print("✓ 找到有效的图片数据，处理中...")
-                self._process_pasted_image(pixmap)
+                self._process_pasted_image(pixmap) # _process_pasted_image 方法会显示一个确认对话框，允许用户预览图片、选择是否压缩，并最终保存图片到 template 目录。保存成功后会将文件路径设置到输入框中，并添加到本行的图片历史中。
                 print("✓ 粘贴处理完成")
                 print("="*60)
                 return  # 阻止默认行为
@@ -70,7 +70,7 @@ class ImageLineEdit(QLineEdit):
                 print("="*60)
         
         # 其他按键的默认处理
-        super().keyPressEvent(event)
+        super().keyPressEvent(event) # 调用父类的 keyPressEvent 方法，确保其他按键（如文本输入、删除等）能够正常工作。如果不调用这个方法，可能会导致输入框无法接受正常的文本输入或其他键盘操作。
     
     def insertFromMimeData(self, source):
         """拦截粘贴事件 - 支持多种剪贴板格式"""
@@ -96,21 +96,21 @@ class ImageLineEdit(QLineEdit):
         # 默认行为（保留文本粘贴能力）
         super().insertFromMimeData(source)
     
-    def _process_pasted_image(self, pixmap):
+    def _process_pasted_image(self, pixmap): 
         """处理粘贴的图片（显示确认对话框）"""
-        if not isinstance(pixmap, QPixmap):
+        if not isinstance(pixmap, QPixmap): #isinstance() 是 Python 内置的一个函数，用于检查一个对象是否是指定类型或其子类的实例。在这里，isinstance(pixmap, QPixmap) 用于检查传入的 pixmap 是否是 QPixmap 类型的对象。如果不是 QPixmap 对象，说明无法处理这个数据，因此直接返回，不执行后续的图片处理逻辑。
             return
         
         # 显示确认对话框
-        dialog = PasteConfirmDialog(pixmap, self)
-        if dialog.exec() == QDialog.Accepted:
+        dialog = PasteConfirmDialog(pixmap, self) #PasteConfirmDialog 是一个自定义的 QDialog 类，当用户点击“保存”按钮时，dialog 会将图片保存到 template 目录，并返回保存的文件路径。
+        if dialog.exec() == QDialog.Accepted: #如果用户在对话框中点击了“保存”按钮，exec() 方法会返回 QDialog.Accepted，此时我们可以通过 dialog.get_saved_path() 获取到保存的文件路径，并将其设置到输入框中，同时添加到图片历史中，并显示预览提示。
             saved_path = dialog.get_saved_path()
             if saved_path:
-                self.setText(saved_path)
-                self.image_history.append(saved_path)
-                self._show_preview(saved_path)
+                self.setText(saved_path) #setText() 方法用于将文本设置到 QLineEdit 输入框中。在这里，我们将保存的文件路径 saved_path 设置到输入框中，这样用户就可以看到刚刚保存的图片文件路径，并且在后续的任务执行中使用这个路径来定位图片。
+                self.image_history.append(saved_path) #image_history 是一个列表，用于存储当前行的图片历史记录。
+                self._show_preview(saved_path) #_show_preview() 方法用于在输入框中显示图片预览提示，包括文件名和大小。
     
-    def _show_preview(self, file_path):
+    def _show_preview(self, file_path): #该函数是类的内部方法，建议不要在类的外部直接调用它。
         """显示图片预览提示（文件名+大小）"""
         if os.path.exists(file_path):
             file_size_kb = os.path.getsize(file_path) / 1024
@@ -152,10 +152,10 @@ class PasteConfirmDialog(QDialog):
         
         # 缩略图预览
         preview_label = QLabel()
-        scaled = self.pixmap.scaledToHeight(150, Qt.SmoothTransformation)
+        scaled = self.pixmap.scaledToHeight(150, Qt.SmoothTransformation) #保持原图宽高比，限制高度为150px
         preview_label.setPixmap(scaled)
         preview_label.setAlignment(Qt.AlignCenter)
-        preview_label.setStyleSheet("border: 2px solid #ddd; padding: 10px; margin: 10px 0;")
+        preview_label.setStyleSheet("border: 2px solid #ddd; padding: 10px; margin: 10px 0;") #添加边框和内外边距，让预览区域更突出和美观
         layout.addWidget(preview_label)
         
         # 图片信息（分辨率）
@@ -177,6 +177,7 @@ class PasteConfirmDialog(QDialog):
         save_btn.clicked.connect(self.save_image)
         
         cancel_btn = QPushButton("✕ 取消")
+        cancel_btn.setStyleSheet("background-color: #f4756b; color: white; padding: 8px; border-radius: 4px;")
         cancel_btn.clicked.connect(self.reject)
         
         btn_layout.addWidget(save_btn)
@@ -186,18 +187,17 @@ class PasteConfirmDialog(QDialog):
     def save_image(self):
         """保存图片到template目录"""
         template_dir = "template"
-        if not os.path.exists(template_dir):
+        if not os.path.exists(template_dir): 
             os.makedirs(template_dir)
         
         # 生成唯一文件名
         timestamp = time.strftime("%Y%m%d_%H%M%S")
-        filename = os.path.join(template_dir, f"screenshot_{timestamp}.png")
+        filename = os.path.join(template_dir, f"screenshot_{timestamp}.png") #这里使用了相对路径 "template/screenshot_{timestamp}.png"，这意味着图片将被保存到当前工作目录下的 template 文件夹中。如果你想要使用绝对路径，可以修改为 os.path.join(os.getcwd(), template_dir, f"screenshot_{timestamp}.png")，这样就会在当前工作目录下创建 template 文件夹，并将图片保存到其中。
         
         # 避免文件名重复
         counter = 1
-        base_filename = filename[:-4]
-        while os.path.exists(filename):
-            filename = f"{base_filename}_{counter}.png"
+        base_filename = filename[:-4] # 去掉 .png 后缀
+        while os.path.exists(filename): #这里OS.path是当前工作目录下？  是的，os.path.exists(filename) 会检查当前工作目录下是否存在指定的文件路径 filename。
             counter += 1
         
         # 检查是否需要压缩
@@ -209,10 +209,10 @@ class PasteConfirmDialog(QDialog):
                 pixmap = self.pixmap.scaledToWidth(1920, Qt.SmoothTransformation)
         
         # 保存图片
-        if pixmap.save(filename):
+        if pixmap.save(filename): #pixmap.save(filename) 方法会尝试将 QPixmap 对象保存为指定路径的图片文件。如果保存成功，返回 True；如果保存失败（例如路径无效、权限不足等），则返回 False。通过检查这个返回值，我们可以确定图片是否成功保存，并根据结果进行相应的处理。
             self.saved_path = filename
             # QMessageBox.information(self, "✓ 成功", f"图片已保存：\n{filename}")
-            self.accept()
+            self.accept() # 调用 self.accept() 会触发 QDialog 的 accept() 方法，这通常会关闭对话框并将 exec() 方法的返回值设置为 QDialog.Accepted。
         else:
             QMessageBox.warning(self, "✕ 错误", f"无法保存图片到 {filename}")
     
@@ -680,7 +680,7 @@ class RPAWindow(QMainWindow):
         top_bar.addWidget(start_container)
         
         self.stop_btn = QPushButton("停止")
-        self.stop_btn.setStyleSheet("background-color: #f44336; color: white;")
+        self.stop_btn.setStyleSheet("background-color: #f4756b; color: white;")
         self.stop_btn.clicked.connect(self.stop_task)
         self.stop_btn.setEnabled(False)
         top_bar.addWidget(self.stop_btn)
