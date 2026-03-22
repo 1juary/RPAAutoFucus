@@ -14,7 +14,7 @@ pip install -r requirements.txt
 python waterRPA_GUI.py
 ```
 
-## 💡 功能特性
+## 💡 功能简介
 
 *   **9种操作类型**：包括点击、双击、右键、文本输入、等待、滚动、按键、悬停、截图。
 *   **智能截图粘贴 (Ctrl+V)**：支持系统截图直接粘贴，自动保存至 `template/`，支持图片压缩。
