@@ -10,9 +10,9 @@ from PIL import Image as PILImage
 from io import BytesIO
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, 
                                QPushButton, QLabel, QComboBox, QLineEdit, QScrollArea, 
-                               QFileDialog, QTextEdit, QMessageBox, QFrame, QCheckBox, QDialog)
+                               QFileDialog, QTextEdit, QFrame, QCheckBox, QDialog, QStyle)
 from PySide6.QtCore import Qt, QThread, Signal, QSize, QMimeData
-from PySide6.QtGui import QPixmap, QColor, QIcon, QClipboard
+from PySide6.QtGui import QPixmap, QColor, QIcon, QClipboard, QPalette
 import cv2
 import numpy as np
 # ==========================================
@@ -87,6 +87,28 @@ QLineEdit:focus, QComboBox:focus {
     border: 1px solid #1890FF;
 }
 
+/* 下拉框弹出列表（防止被系统深色模式污染，强制明亮风格） */
+QComboBox QAbstractItemView {
+    background-color: #FFFFFF;
+    color: #333333;
+    border: 1px solid #D9D9D9;
+    selection-background-color: #E6F7FF;
+    selection-color: #333333;
+    outline: 0;
+}
+QComboBox::drop-down {
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid #D9D9D9;
+}
+QComboBox::drop-down:hover {
+    background-color: #F8FBFF;
+}
+QComboBox:on {
+    background-color: #FFFFFF;
+}
+
 /* 指令卡片样式 (TaskRow) */
 QFrame#taskCard {
     background-color: #FFFFFF;
@@ -128,6 +150,112 @@ QTextEdit {
     padding: 10px;
 }
 """
+
+
+def apply_light_combobox(combo: QComboBox) -> None:
+    """强制下拉弹层为亮色（解决 Windows 深色模式下弹出列表黑底问题）。"""
+    # 不替换 view（避免 popup 定位/尺寸变化），只对现有弹层做样式兜底
+    view = combo.view()
+    if view is None:
+        return
+
+    view.setStyleSheet(
+        "QAbstractItemView { background-color: #FFFFFF; color: #333333; }"
+        "QAbstractItemView::item { padding: 4px 8px; }"
+        "QAbstractItemView::item:selected { background-color: #E6F7FF; color: #333333; }"
+    )
+
+    pal = view.palette()
+    pal.setColor(QPalette.Base, QColor("#FFFFFF"))
+    pal.setColor(QPalette.Text, QColor("#333333"))
+    pal.setColor(QPalette.Highlight, QColor("#E6F7FF"))
+    pal.setColor(QPalette.HighlightedText, QColor("#333333"))
+    view.setPalette(pal)
+    view.setAutoFillBackground(True)
+
+
+class LightMessageDialog(QDialog):
+    """自绘轻量弹窗：绕开 Windows 深色模式/原生对话框导致的黑底问题。"""
+
+    def __init__(self, parent, title: str, text: str, icon: QStyle.StandardPixmap, buttons=("OK",)):
+        super().__init__(parent)
+        self.setWindowTitle(title)
+        self._result = None
+
+        self.setModal(True)
+        self.setMinimumWidth(360)
+
+        self.setStyleSheet(
+            "QDialog { background-color: #FFFFFF; }"
+            "QLabel { color: #333333; font-size: 13px; }"
+        )
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(16, 16, 16, 12)
+        root.setSpacing(12)
+
+        body = QHBoxLayout()
+        body.setSpacing(12)
+
+        icon_label = QLabel()
+        icon_label.setFixedSize(48, 48)
+        pm = QApplication.style().standardIcon(icon).pixmap(36, 36)
+        icon_label.setPixmap(pm)
+        icon_label.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+        body.addWidget(icon_label)
+
+        text_label = QLabel(text)
+        text_label.setWordWrap(True)
+        text_label.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+        body.addWidget(text_label, 1)
+
+        root.addLayout(body)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+
+        def add_btn(caption: str, is_default: bool = False):
+            btn = QPushButton(caption)
+            btn.clicked.connect(lambda: self._close_with(caption))
+            btn_row.addWidget(btn)
+            if is_default:
+                btn.setDefault(True)
+                btn.setAutoDefault(True)
+
+        if len(buttons) == 1:
+            add_btn(buttons[0], True)
+        else:
+            # 约定：最后一个作为默认按钮
+            for i, cap in enumerate(buttons):
+                add_btn(cap, i == len(buttons) - 1)
+
+        root.addLayout(btn_row)
+
+    def _close_with(self, caption: str):
+        self._result = caption
+        self.accept()
+
+    @property
+    def result_caption(self):
+        return self._result
+
+
+def show_info(parent, title: str, text: str) -> None:
+    LightMessageDialog(parent, title, text, QStyle.SP_MessageBoxInformation, buttons=("OK",)).exec()
+
+
+def show_warning(parent, title: str, text: str) -> None:
+    LightMessageDialog(parent, title, text, QStyle.SP_MessageBoxWarning, buttons=("OK",)).exec()
+
+
+def show_error(parent, title: str, text: str) -> None:
+    LightMessageDialog(parent, title, text, QStyle.SP_MessageBoxCritical, buttons=("OK",)).exec()
+
+
+def ask_yes_no(parent, title: str, text: str, yes_text: str = "是", no_text: str = "否") -> bool:
+    dlg = LightMessageDialog(parent, title, text, QStyle.SP_MessageBoxQuestion, buttons=(no_text, yes_text))
+    dlg.exec()
+    return dlg.result_caption == yes_text
 
 # --------------------------
 # 自定义输入框和对话框 (原封不动，非常完美)
@@ -348,7 +476,8 @@ class PasteConfirmDialog(QDialog):
             self.saved_path = filename
             self.accept()
         else:
-            QMessageBox.warning(self, "✕ 错误", f"无法保存图片到 {filename}")
+            show_warning(self, "✕ 错误", f"无法保存图片到 {filename}")
+
             
     def get_saved_path(self): 
         return self.saved_path
@@ -626,6 +755,7 @@ class TaskRow(QFrame):
         self.type_combo = QComboBox()
         self.type_combo.addItems(list(CMD_TYPES.keys()))
         self.type_combo.setFixedWidth(105)
+        apply_light_combobox(self.type_combo)
         self.type_combo.currentTextChanged.connect(self.on_type_changed)
         self.layout.addWidget(self.type_combo)
 
@@ -746,15 +876,14 @@ class TaskRow(QFrame):
         """显示本行的图片历史"""
         history = self.value_input.get_image_history()
         if not history:
-            QMessageBox.information(self, "提示", "本行暂无图片粘贴记录")
+            show_info(self, "提示", "本行暂无图片粘贴记录")
             return
         
         msg = "📋 图片历史 (按时间排序):\n\n"
         for i, p in enumerate(history, 1):
             msg += f"{i}. {os.path.basename(p)}\n"
         
-        reply = QMessageBox.question(self, "历史记录", msg + "\n是否重新加载最后一次截图？")
-        if reply == QMessageBox.Yes:
+        if ask_yes_no(self, "历史记录", msg + "\n是否重新加载最后一次截图？"):
             self.value_input.setText(history[-1])
 
     def set_data(self, data):
@@ -814,6 +943,7 @@ class RPAWindow(QMainWindow):
 
         self.loop_check = QComboBox()
         self.loop_check.addItems(["执行一次", "循环执行"])
+        apply_light_combobox(self.loop_check)
         top_bar.addWidget(self.loop_check)
         
         self.start_btn = QPushButton("▶ 开始运行")
@@ -924,7 +1054,7 @@ class RPAWindow(QMainWindow):
     def save_config(self):
         tasks = self._get_ordered_tasks()
         if not tasks:
-            QMessageBox.warning(self, "警告", "没有可保存的配置")
+            show_warning(self, "警告", "没有可保存的配置")
             return
         filename, _ = QFileDialog.getSaveFileName(self, "保存配置", os.getcwd(), "JSON Files (*.json);;Text Files (*.txt)")
         if filename:
@@ -933,7 +1063,7 @@ class RPAWindow(QMainWindow):
                     json.dump(tasks, f, indent=4, ensure_ascii=False)
                 self.log("配置已保存到：" + filename)
             except Exception as e:
-                QMessageBox.critical(self, "错误", f"保存失败: {e}")
+                show_error(self, "错误", f"保存失败: {e}")
 
     def load_config(self):
         filename, _ = QFileDialog.getOpenFileName(self, "导入配置", os.getcwd(), "JSON Files (*.json);;Text Files (*.txt)")
@@ -952,16 +1082,16 @@ class RPAWindow(QMainWindow):
                 self.add_row(task)
             self.log(f"成功导入 {len(tasks)} 条指令！")
         except Exception as e:
-            QMessageBox.critical(self, "错误", f"导入失败: {e}")
+            show_error(self, "错误", f"导入失败: {e}")
 
     def start_task(self):
         tasks = self._get_ordered_tasks()
         for data in tasks:
             if not data['value']:
-                QMessageBox.warning(self, "警告", "存在参数为空的指令，请检查！")
+                show_warning(self, "警告", "存在参数为空的指令，请检查！")
                 return
         if not tasks:
-            QMessageBox.warning(self, "警告", "请至少添加一条指令！")
+            show_warning(self, "警告", "请至少添加一条指令！")
             return
 
         self.log_area.clear()
@@ -1011,6 +1141,23 @@ def main():
     app = QApplication(sys.argv)
     # 支持高分屏 (让字体和图片更锐利)
     app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+    # 禁用原生对话框：确保 QMessageBox / QFileDialog 等弹窗也能吃到 QSS，避免深色模式黑底
+    app.setAttribute(Qt.AA_DontUseNativeDialogs)
+    # 统一使用 Fusion，避免原生控件/弹层在深色模式下走系统配色
+    app.setStyle("Fusion")
+    light_palette = QPalette()
+    light_palette.setColor(QPalette.Window, QColor("#F0F2F5"))
+    light_palette.setColor(QPalette.WindowText, QColor("#333333"))
+    light_palette.setColor(QPalette.Base, QColor("#FFFFFF"))
+    light_palette.setColor(QPalette.AlternateBase, QColor("#FAFAFA"))
+    light_palette.setColor(QPalette.Text, QColor("#333333"))
+    light_palette.setColor(QPalette.Button, QColor("#FFFFFF"))
+    light_palette.setColor(QPalette.ButtonText, QColor("#333333"))
+    light_palette.setColor(QPalette.Highlight, QColor("#E6F7FF"))
+    light_palette.setColor(QPalette.HighlightedText, QColor("#333333"))
+    app.setPalette(light_palette)
+    # 全局注入 QSS：确保 QComboBox 弹出列表等顶层 Popup 也能统一风格
+    app.setStyleSheet(MODERN_QSS)
     window = RPAWindow()
     window.show()
     sys.exit(app.exec())
