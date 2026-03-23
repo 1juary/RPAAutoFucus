@@ -11,7 +11,7 @@
 pip install -r requirements.txt
 
 # 启动应用
-python waterRPA_GUI.py
+python -m water_rpa.main
 ```
 
 ## 💡 功能介绍

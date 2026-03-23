@@ -48,7 +48,7 @@
 ### 模块依赖关系
 
 ```
-waterRPA_GUI.py
+water_rpa/ (package)
 │
 ├─ PySide6 (GUI框架)
 │  └─ Qt信号槽机制

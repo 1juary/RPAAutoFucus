@@ -4,7 +4,7 @@
 
 ### 启动应用
 ```bash
-python waterRPA_GUI.py
+python -m water_rpa.main
 ```
 
 ### 安装依赖

@@ -4,7 +4,7 @@
 
 ```mermaid
 graph TD
-    A["启动应用<br/>python waterRPA_GUI.py"] --> B["创建QApplication<br/>应用对象"]
+    A["启动应用<br/>python -m water_rpa.main"] --> B["创建QApplication<br/>应用对象"]
     B --> C["创建RPAWindow<br/>主窗口实例"]
     C --> D["初始化界面组件<br/>控制栏、列表、日志"]
     D --> E["第一次添加任务行<br/>TaskRow"]
