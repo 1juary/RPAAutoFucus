@@ -17,21 +17,20 @@ def main() -> None:
     setup_logging(config.LOG_FILE)
     logger = logging.getLogger(__name__)
 
-    def _excepthook(exc_type, exc, tb):
+    def _excepthook(exc_type, exc, tb):  #当程序中发生未捕获的异常时，这个函数会被调用。它会将异常信息记录到日志中，并且调用默认的异常处理函数来显示错误信息。
         logger.exception("Unhandled exception", exc_info=(exc_type, exc, tb))
         sys.__excepthook__(exc_type, exc, tb)
 
-    sys.excepthook = _excepthook
+    sys.excepthook = _excepthook 
 
-    app = QApplication(sys.argv)
+    app = QApplication(sys.argv) #创建一个QApplication对象，负责管理应用程序的控制流和主要设置。它是所有Qt应用程序的基础，必须在创建任何其他Qt对象之前创建。
 
     # app.setAttribute(Qt.AA_UseHighDpiPixmaps)
-    app.setAttribute(Qt.AA_DontUseNativeDialogs)
+    app.setAttribute(Qt.AA_DontUseNativeDialogs) #禁用原生对话框，使用Qt自带的对话框。这可以确保在不同平台上有一致的用户界面体验，避免原生对话框可能带来的兼容性问题。
 
-    app.setStyle("Fusion")
-
-    light_palette = QPalette()
-    light_palette.setColor(QPalette.Window, QColor("#F0F2F5"))
+    app.setStyle("Fusion") #Fusion是一种什么样的风格？  Fusion是一种跨平台的Qt风格，提供了一致的外观和感觉。
+    light_palette = QPalette() #Palette 调色盘
+    light_palette.setColor(QPalette.Window, QColor("#F0F2F5")) #setColor是实例方法
     light_palette.setColor(QPalette.WindowText, QColor("#333333"))
     light_palette.setColor(QPalette.Base, QColor("#FFFFFF"))
     light_palette.setColor(QPalette.AlternateBase, QColor("#FAFAFA"))
@@ -40,14 +39,14 @@ def main() -> None:
     light_palette.setColor(QPalette.ButtonText, QColor("#333333"))
     light_palette.setColor(QPalette.Highlight, QColor("#E6F7FF"))
     light_palette.setColor(QPalette.HighlightedText, QColor("#333333"))
-    app.setPalette(light_palette)
+    app.setPalette(light_palette) 
 
     app.setStyleSheet(MODERN_QSS)
 
     window = RPAWindow()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec()) #app.exec()进入Qt的事件循环，等待用户交互和其他事件的发生。直到你点击了窗口右上角的“✖”关闭按钮，接待员下班（app.exec() 结束并返回一个退出代码，比如 0），然后最外层的 sys.exit(0) 接收到这个代码，正式把整个程序关掉。
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":#__name__ 是一个系统自带的隐藏变量。直接运行当前代码会启动下面行，如果被其他代码导入，则不会执行下面行。
     main()
