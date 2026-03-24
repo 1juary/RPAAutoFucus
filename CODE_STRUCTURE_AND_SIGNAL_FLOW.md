@@ -69,23 +69,23 @@ RPAAutoFucus/
 
 ```mermaid
 flowchart TB
-  subgraph UI[GUI 层 water_rpa/gui]
-    W[RPAWindow\n(gui/app_window.py)]
-    T[WorkerThread\n(gui/threads.py)]
-    R[TaskRow\n(gui/components.py)]
-    D[Dialogs/Widgets\n(gui/dialogs.py + gui/custom_widgets.py)]
+  subgraph UI ["GUI 层 (water_rpa/gui)"]
+    W["RPAWindow<br/>(gui/app_window.py)"]
+    T["WorkerThread<br/>(gui/threads.py)"]
+    R["TaskRow<br/>(gui/components.py)"]
+    D["Dialogs/Widgets<br/>(gui/dialogs.py + gui/custom_widgets.py)"]
   end
 
-  subgraph CORE[Core 层 water_rpa/core]
-    E[RPAEngine\n(core/engine.py)]
-    A[actions\n(core/actions.py)]
-    V[vision\n(core/vision.py)]
-    M[RPATask\n(core/models.py)]
-    L[logging_setup\n(core/logging_setup.py)]
+  subgraph CORE ["Core 层 (water_rpa/core)"]
+    E["RPAEngine<br/>(core/engine.py)"]
+    A["actions<br/>(core/actions.py)"]
+    V["vision<br/>(core/vision.py)"]
+    M["RPATask<br/>(core/models.py)"]
+    L["logging_setup<br/>(core/logging_setup.py)"]
   end
 
-  C[config\n(water_rpa/config.py)]
-  MAIN[main\n(water_rpa/main.py)]
+  C["config<br/>(water_rpa/config.py)"]
+  MAIN["main<br/>(water_rpa/main.py)"]
 
   MAIN --> C
   MAIN --> L
@@ -102,16 +102,18 @@ flowchart TB
   A --> V
   E --> M
 
-  C -.constants/path/QSS.-> W
-  C -.constants/path.-> D
-  C -.constants/path.-> V
-  C -.constants/path.-> E
+  C -. "constants/path/QSS" .-> W
+  C -. "constants/path" .-> D
+  C -. "constants/path" .-> V
+  C -. "constants/path" .-> E
 
+  %% 样式定义
   classDef ui fill:#E8F3FF,stroke:#4B89DC,stroke-width:1px;
   classDef core fill:#E9F7EF,stroke:#2E8B57,stroke-width:1px;
   classDef cfg fill:#FFF7E6,stroke:#D48806,stroke-width:1px;
   classDef entry fill:#FDE7F3,stroke:#C41D7F,stroke-width:1px;
 
+  %% 应用样式
   class W,T,R,D ui;
   class E,A,V,M,L core;
   class C cfg;
@@ -194,15 +196,15 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  MAIN[main.py] --> LS[setup_logging(LOG_FILE)]
-  LS --> FH[RotatingFileHandler]
-  LS --> SH[StreamHandler(stderr)]
-  FH --> FILE[logs/water_rpa.log]
+  MAIN["main.py"] --> LS["setup_logging(LOG_FILE)"]
+  LS --> FH["RotatingFileHandler"]
+  LS --> SH["StreamHandler(stderr)"]
+  FH --> FILE["logs/water_rpa.log"]
 
-  subgraph Runtime[运行期记录来源]
-    V[vision.py logger.exception]
-    A[actions.py logger.exception/节流]
-    E[engine.py logger.exception/info]
+  subgraph Runtime ["运行期记录来源"]
+    V["vision.py logger.exception"]
+    A["actions.py logger.exception/节流"]
+    E["engine.py logger.exception/info"]
   end
 
   V --> FH
@@ -216,23 +218,24 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-  EN[RPAEngine.run_tasks]
-  TASK[RPATask(type,value,retry)]
+  EN["RPAEngine.run_tasks"]
+  TASK["RPATask(type, value, retry)"]
 
   EN --> TASK
 
-  TASK -->|1/2/3/8 图片类| RES[resolve_path\n相对路径按 REPO_ROOT 解析]
-  RES --> ACT[actions.mouse_click / mouse_move]
-  ACT --> VSN[vision._process_red_box_logic]
-  ACT --> PA[pyautogui.locateOnScreen/click/moveTo]
+  TASK -->|1/2/3/8 图片类| RES["resolve_path<br/>相对路径按 REPO_ROOT 解析"]
+  RES --> ACT["actions.mouse_click / mouse_move"]
+  ACT --> VSN["vision._process_red_box_logic"]
+  ACT --> PA["pyautogui.locateOnScreen/click/moveTo"]
 
-  TASK -->|4 输入文本| CLIP[pyperclip.copy] --> HOTKEY[pyautogui.hotkey(ctrl,v)]
-  TASK -->|5 等待| SLEEP[time.sleep(0.1) 轮询停止]
-  TASK -->|6 滚轮| SCROLL[pyautogui.scroll]
-  TASK -->|7 系统按键| HK[pyautogui.hotkey(*keys)]
-  TASK -->|9 截图保存| SS[pyautogui.screenshot(file)]
+  TASK -->|4 输入文本| CLIP["pyperclip.copy"] --> HOTKEY["pyautogui.hotkey(ctrl, v)"]
+  TASK -->|5 等待| SLEEP["time.sleep(0.1) 轮询停止"]
+  TASK -->|6 滚轮| SCROLL["pyautogui.scroll"]
+  TASK -->|7 系统按键| HK["pyautogui.hotkey(*keys)"]
+  TASK -->|9 截图保存| SS["pyautogui.screenshot(file)"]
 
-  classDef core fill:#E9F7EF,stroke:#2E8B57;
+  %% 样式定义
+  classDef core fill:#E9F7EF,stroke:#2E8B57,stroke-width:1px;
   class EN,TASK,RES,ACT,VSN,PA,CLIP,HOTKEY,SLEEP,SCROLL,HK,SS core;
 ```
 
