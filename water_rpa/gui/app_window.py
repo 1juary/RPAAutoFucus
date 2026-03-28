@@ -222,7 +222,7 @@ class RPAWindow(QMainWindow):
         self.worker = WorkerThread(self.engine, tasks, loop)
         self.worker.log_signal.connect(self.log)
         self.worker.finished_signal.connect(self.on_finished) #finished_signal 是 WorkerThread 类中的一个信号，当 WorkerThread 线程完成任务后会发出这个信号。on_finished 是 RPAWindow 类中的一个方法，用于处理 WorkerThread 线程完成任务后的操作。当 WorkerThread 线程完成任务时，它会调用 self.finished_signal.emit() 来发出 finished_signal 信号，RPAWindow 类中的 on_finished 方法会被触发执行，从而更新界面状态，例如重新启用开始按钮、禁用停止按钮等。
-        self.worker.start()
+        self.worker.start() #调用 WorkerThread 类中的 run() 方法来执行具体的任务逻辑。在这个例子中，run() 方法会调用 self.engine.run_tasks() 来运行指定的任务列表，并在任务执行过程中通过 log_callback 来发送日志信息。当 run() 方法执行完成后，WorkerThread 线程会自动发出 finished_signal 信号，通知 RPAWindow 线程任务已经完成，从而触发 on_finished 方法来更新界面状态。
 
         if self.minimize_check.isChecked():
             self.showMinimized()
@@ -241,13 +241,16 @@ class RPAWindow(QMainWindow):
             self.activateWindow()
 
     def log(self, msg: str) -> None:
-        self.log_area.append(msg)
+        self.log_area.append(msg) #append() 是 QTextEdit 的一个方法，用于在文本编辑器中添加一行文本。msg 这个字符串会被添加到 log_area 文本编辑器的末尾，并且会自动换行显示。
         scrollbar = self.log_area.verticalScrollBar()
-        scrollbar.setValue(scrollbar.maximum())
+        scrollbar.setValue(scrollbar.maximum()) #setValue() 是 QScrollBar 的一个方法，用于设置滚动条的当前值。通过调用 scrollbar.setValue(scrollbar.maximum())，可以将滚动条自动滚动到最底部，从而确保最新添加的日志信息能够被用户看到。
 
-    def closeEvent(self, event) -> None:
+    def closeEvent(self, event) -> None: #传进来的这个 event，它真正的身份是 QCloseEvent 类的一个实例
         if self.worker and self.worker.isRunning():
             self.engine.stop()
             self.worker.quit()
             self.worker.wait()
-        event.accept()
+        event.accept() #event自带的方法。
+        #这是 Qt 框架底层的“自动触发机制”（“方法重写”）
+        #原版只会直接关闭窗口，重写函数后，确认如果有正在运行的任务，先发出停止请求，等待线程退出，然后再关闭窗口。这样可以避免在任务执行过程中直接关闭窗口可能导致的资源泄漏或未完成的操作。
+        

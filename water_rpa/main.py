@@ -14,11 +14,11 @@ from water_rpa.gui.app_window import RPAWindow
 
 
 def main() -> None:
-    setup_logging(config.LOG_FILE)
-    logger = logging.getLogger(__name__)
+    setup_logging(config.LOG_FILE) #以后所有的底层错误，都写进config.LOG_FILE指定的日志文件里，方便排查问题。并且在gui界面上也会显示出来。
+    logger = logging.getLogger(__name__) #在各个功能文件来获取一个与当前模块名称相同的 Logger 对象，这样就可以在日志中清楚地看到每条日志来自哪个模块。__name__ 是一个特殊变量，表示当前模块的名称。main.py 的 __name__ 是 "main"。
 
-    def _excepthook(exc_type, exc, tb):  #当程序中发生未捕获的异常时，这个函数会被调用。它会将异常信息记录到日志中，并且调用默认的异常处理函数来显示错误信息。
-        logger.exception("Unhandled exception", exc_info=(exc_type, exc, tb))
+    def _excepthook(exc_type, exc, tb): 
+        logger.exception("Unhandled exception", exc_info=(exc_type, exc, tb)) #记录下异常，并打包放进.log文件里面
         sys.__excepthook__(exc_type, exc, tb)
 
     sys.excepthook = _excepthook 
