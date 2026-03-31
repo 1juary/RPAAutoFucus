@@ -4,10 +4,11 @@ import os
 from pathlib import Path
 
 # Package dir = .../RPAAutoFucus/water_rpa
-BASE_DIR: str = os.path.dirname(os.path.abspath(__file__))
+BASE_DIR: str = os.path.dirname(os.path.abspath(__file__)) #os.path.abspath(__file__) 获取当前文件的绝对路径，os.path.dirname() 获取该路径的目录部分，也就是当前文件所在的目录。这个BASE_DIR变量可以用来构建其他资源文件的路径，确保无论这个代码被放在哪里运行，都能正确地找到相关资源。
+#__FILE__是一个魔法词，代表当前这个代码文件所在的绝对位置。
 
 # Repo root = .../RPAAutoFucus
-REPO_ROOT: Path = Path(BASE_DIR).resolve().parent
+REPO_ROOT: Path = Path(BASE_DIR).resolve().parent #Path(BASE_DIR)把字符串路径转换成Path对象，.resolve()把路径转换成绝对路径，.parent获取上一级目录，也就是REPO_ROOT。这样无论这个代码被放在哪里运行，都能正确地找到REPO_ROOT。
 
 # Resource directories (kept at repo root to match current layout)
 TEMPLATE_DIR: Path = REPO_ROOT / "template"
@@ -21,7 +22,7 @@ LOG_DIR: Path = REPO_ROOT / "logs"
 LOG_FILE: Path = LOG_DIR / "water_rpa.log"
 
 # ==========================================
-# Global modern QSS stylesheet
+# Qt Style Sheets
 # ==========================================
 MODERN_QSS = """
 /* 主窗口背景 */
@@ -169,4 +170,4 @@ CMD_TYPES = {
     "截图保存": 9.0,
 }
 
-CMD_TYPES_REV = {v: k for k, v in CMD_TYPES.items()}
+CMD_TYPES_REV = {v: k for k, v in CMD_TYPES.items()} #字典推导式，反转CMD_TYPES字典的键和值，得到一个新的字典CMD_TYPES_REV。保存的json配置文件中数字，可视化界面可以查找对应的文本。比如 CMD_TYPES_REV[1.0] 就会返回 "左键单击"。

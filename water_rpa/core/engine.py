@@ -60,7 +60,7 @@ class RPAEngine:
         self,
         tasks: list[dict] | list[RPATask],
         loop_forever: bool = False,
-        callback_msg: Callable[[str], None] | None = None,
+        callback_msg: Callable[[str], None] | None = None, # callback_msg是一个可选的回调函数参数，类型为 Callable[[str], None]，表示这是一个接受一个字符串参数并且没有返回值的函数。
     ) -> None:
         self.is_running = True
         self.stop_requested = False

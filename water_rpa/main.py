@@ -14,7 +14,7 @@ from water_rpa.gui.app_window import RPAWindow
 
 
 def main() -> None:
-    setup_logging(config.LOG_FILE) #以后所有的底层错误，都写进config.LOG_FILE指定的日志文件里，方便排查问题。并且在gui界面上也会显示出来。
+    setup_logging(config.LOG_FILE) #config.LOG_FILE不是一个文件的名字，而是去config.py里面找LOG_FILE这个变量，拿到它的值，传给setup_logging函数。setup_logging函数会根据这个路径创建一个日志文件，并配置好日志记录器，让我们可以在代码的其他地方通过 logging.getLogger(__name__) 来获取这个日志记录器，并使用它来记录日志。
     logger = logging.getLogger(__name__) #在各个功能文件来获取一个与当前模块名称相同的 Logger 对象，这样就可以在日志中清楚地看到每条日志来自哪个模块。__name__ 是一个特殊变量，表示当前模块的名称。main.py 的 __name__ 是 "main"。
 
     def _excepthook(exc_type, exc, tb): 
